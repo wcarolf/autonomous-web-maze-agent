@@ -1,0 +1,700 @@
+{
+  "nbformat": 4,
+  "nbformat_minor": 0,
+  "metadata": {
+    "colab": {
+      "provenance": [],
+      "authorship_tag": "ABX9TyOCP3dJ9M/GvlsAfJjnPp0s",
+      "include_colab_link": true
+    },
+    "kernelspec": {
+      "name": "python3",
+      "display_name": "Python 3"
+    },
+    "language_info": {
+      "name": "python"
+    }
+  },
+  "cells": [
+    {
+      "cell_type": "markdown",
+      "metadata": {
+        "id": "view-in-github",
+        "colab_type": "text"
+      },
+      "source": [
+        "<a href=\"https://colab.research.google.com/github/wcarolf/autonomous-web-maze-agent/blob/main/autonomous-web-maze-agent\" target=\"_parent\"><img src=\"https://colab.research.google.com/assets/colab-badge.svg\" alt=\"Open In Colab\"/></a>"
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Importando API Para criação do modelo de LLM Gratuita via https://openrouter.ai e executando cada codigo para verificação da LLM e se está tudo dentro dos conformes, para assim, fazermos um loop e pesquisas dentro do site https://maze.edwarddonner.com para ir até o final do labirinto criado para achar a mensagem, fazendo com que o agente ache o final certo do labirinto criado via WEBSITE.\n"
+      ],
+      "metadata": {
+        "id": "Z--YmxEs7E1x"
+      }
+    },
+    {
+      "cell_type": "code",
+      "metadata": {
+        "id": "WP3vwRPz_Jgg"
+      },
+      "source": [
+        "from google.colab import userdata\n",
+        "import os\n",
+        "\n",
+        "# No Google Colab, as chaves seguras são guardadas no painel lateral (Secrets) e acessadas com userdata\n",
+        "try:\n",
+        "    openrouter_api_key = userdata.get(\"OPENROUTER_API_KEY\").strip()\n",
+        "except Exception:\n",
+        "    openrouter_api_key = os.getenv(\"OPENROUTER_API_KEY\")\n",
+        "\n",
+        "if not openrouter_api_key:\n",
+        "    raise ValueError(\"Chave OPENROUTER_API_KEY não encontrada! Configure a chave nos Secrets (ícone de chave) do Google Colab.\")"
+      ],
+      "execution_count": 21,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "import json\n",
+        "import requests\n",
+        "from bs4 import BeautifulSoup\n",
+        "from google.colab import userdata\n",
+        "from IPython.display import Markdown, display\n",
+        "from openai import OpenAI"
+      ],
+      "metadata": {
+        "id": "zztOKJMS6Ybj"
+      },
+      "execution_count": 2,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "openrouter_api_key = userdata.get(\"OPENROUTER_API_KEY\").strip()\n",
+        "\n",
+        "if openrouter_api_key.startswith(\"sk-or-v1-\"):\n",
+        "    print(f\"OpenRouter API key exists and begins {openrouter_api_key[:9]}\")\n",
+        "else:\n",
+        "    print(\"This does not look like an OpenRouter API key.\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "XO8cqupE6es8",
+        "outputId": "a88062e5-1053-4566-ea18-0a84b3927b97"
+      },
+      "execution_count": 3,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "OpenRouter API key exists and begins sk-or-v1-\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "problems = []\n",
+        "if openrouter_api_key.count(\"sk-or-\") > 1:\n",
+        "    problems.append(\"It looks like it was pasted more than once\")\n",
+        "for position, character in enumerate(openrouter_api_key, start=1):\n",
+        "    if not (character.isascii() and (character.isalnum() or character in \"-_\")):\n",
+        "        problems.append(f\"Character {position} is {character!r}\")\n",
+        "\n",
+        "if problems:\n",
+        "    print(\"There is a problem with your key. Please repeat Setup parts 3 and 4.\")\n",
+        "    for problem in problems:\n",
+        "        print(f\"- {problem}\")\n",
+        "else:\n",
+        "    print(f\"OpenRouter API key looks good and has {len(openrouter_api_key)} characters (mine has 73)\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "F_rPN5uk6pjo",
+        "outputId": "1045927d-3a05-4dae-e6e3-5f37cce49ddd"
+      },
+      "execution_count": 4,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "OpenRouter API key looks good and has 73 characters (mine has 73)\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "response = requests.get(\"https://openrouter.ai/api/v1/key\", headers={\"Authorization\": f\"Bearer {openrouter_api_key}\"})\n",
+        "result = response.json()\n",
+        "\n",
+        "if response.ok:\n",
+        "    key_info = result[\"data\"]\n",
+        "    print(f\"Success! OpenRouter accepted your key {key_info['label']}\")\n",
+        "else:\n",
+        "    print(f\"OpenRouter did not accept this key: {result['error']['message']} (error {response.status_code})\")\n"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "VuVC9SOz6qYi",
+        "outputId": "81d63cec-3b41-4077-d208-c8c3f568807b"
+      },
+      "execution_count": 5,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Success! OpenRouter accepted your key sk-or-v1-24e...ca9\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Verificação novamente da API"
+      ],
+      "metadata": {
+        "id": "s06IOh8J7DrD"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "OPENROUTER_BASE_URL = \"https://openrouter.ai/api/v1\"\n",
+        "MODEL = \"openrouter/free\"\n",
+        "\n",
+        "# Retry up to 5 times when a free model is busy\n",
+        "openrouter = OpenAI(api_key=openrouter_api_key, base_url=OPENROUTER_BASE_URL, timeout=120, max_retries=5)"
+      ],
+      "metadata": {
+        "id": "SisvFK1E63LL"
+      },
+      "execution_count": 7,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Busca pelos modelos de LLM Concluidos com sucesso\n",
+        "\n"
+      ],
+      "metadata": {
+        "id": "d7wFyTf-69Gt"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "messages = [{\"role\": \"user\", \"content\": \"Hi there!\"}]\n",
+        "\n",
+        "response = openrouter.chat.completions.create(model=MODEL, messages=messages)\n",
+        "\n",
+        "print(f\"Answered by {response.model}\")\n",
+        "display(Markdown(response.choices[0].message.content))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 64
+        },
+        "id": "bFuzy_0n63hd",
+        "outputId": "c21b3583-7d1c-4949-ef92-10f48ef8426e"
+      },
+      "execution_count": 8,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Answered by liquid/lfm-3-1.7b:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "Hey there! 👋 How can I help you today?"
+          },
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Aqui o agente fará a leitura do site, caso o site estiver errado, ele demonstrará uma mensagem negativa."
+      ],
+      "metadata": {
+        "id": "_BJ9n0Pw8mHy"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "MAZE_URL = \"https://maze.edwarddonner.com\"\n",
+        "\n",
+        "def read_web_page(url):\n",
+        "    \"\"\"Read a web page in the maze and return the text on the page, without the HTML\"\"\"\n",
+        "    print(f\"Reading web page: {url}\")\n",
+        "    if not url.startswith(MAZE_URL):\n",
+        "        return f\"Sorry, this tool can only read pages in the maze. Please ask for a URL that starts with {MAZE_URL}\"\n",
+        "    response = requests.get(url, timeout=20)\n",
+        "    page = BeautifulSoup(response.text, \"html.parser\")\n",
+        "    return page.body.get_text(separator=\"\\n\", strip=True)"
+      ],
+      "metadata": {
+        "id": "P_MtoijI8kpB"
+      },
+      "execution_count": 9,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "print(read_web_page(\"https://maze.edwarddonner.com\"))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "ZapZ0QBd8vDi",
+        "outputId": "98ceca4b-f06f-456e-ed46-bb8da9363bf3"
+      },
+      "execution_count": 10,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://maze.edwarddonner.com\n",
+            "The Maze\n",
+            "This page is for an AI that can read web pages. Your goal is to find the way out of a small maze and bring back the message that is waiting there. Every location in the maze is a web page that describes the room and lists its exits.\n",
+            "Step 1 is the entrance:\n",
+            "Location 1\n",
+            "https://maze.edwarddonner.com/1\n",
+            "Start with the maze now. Open the entrance, then follow the exits one page at a time. Some passages are dead ends, so go back and try another way when you reach one.\n",
+            "Keep the person you are working with updated as you go. After each location, say where you are and what you found there, and show a mini-map of the maze as you have seen it so far, drawn in text with the rooms you have visited and the exits you know about. When you reach the way out, give the message and a final map of your whole journey.\n",
+            "If you are a person reading this, give this address to ChatGPT or Claude and ask it to do what the page says.\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Logo abaixo tem o que acontece caso o site estiver errado."
+      ],
+      "metadata": {
+        "id": "_IXYsiQh8yoA"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "print(read_web_page(\"https://edwarddonner.com\"))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "V-hxB2XR85Wo",
+        "outputId": "e6cd43c0-a1b7-4254-b552-8ec9b1f82a77"
+      },
+      "execution_count": 11,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://edwarddonner.com\n",
+            "Sorry, this tool can only read pages in the maze. Please ask for a URL that starts with https://maze.edwarddonner.com\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "então para esse agente harness é necessario criação de um JSON para ele entender melhor o que estará fazendo na execução:"
+      ],
+      "metadata": {
+        "id": "MVUdynNN886X"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "read_web_page_json = {\n",
+        "    \"type\": \"function\",\n",
+        "    \"function\": {\n",
+        "        \"name\": \"read_web_page\",\n",
+        "        \"description\": \"Read a web page and return the text on the page\",\n",
+        "        \"parameters\": {\n",
+        "            \"type\": \"object\",\n",
+        "            \"properties\": {\n",
+        "                \"url\": {\"type\": \"string\", \"description\": \"The full URL of the web page to request\"},\n",
+        "            },\n",
+        "            \"required\": [\"url\"],\n",
+        "        },\n",
+        "    },\n",
+        "}\n",
+        "\n",
+        "tools = [read_web_page_json]"
+      ],
+      "metadata": {
+        "id": "msiOi35w9R7p"
+      },
+      "execution_count": 12,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Caso ocorra alguma falha na execução da ferramenta (como uma URL inválida), o bloco try/except captura o erro e o devolve como mensagem para a própria LLM, permitindo que o agente se recupere e tente outro caminho sem travar o programa."
+      ],
+      "metadata": {
+        "id": "1rK_JP5E9T4W"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def handle_tool_call(tool_call):\n",
+        "    \"\"\"Run the tool that the model asked for and package the result as a message\"\"\"\n",
+        "    try:\n",
+        "        arguments = json.loads(tool_call.function.arguments)\n",
+        "        result = read_web_page(**arguments)\n",
+        "    except Exception as error:\n",
+        "        result = f\"The tool call failed: {error}\"\n",
+        "    return {\"role\": \"tool\", \"tool_call_id\": tool_call.id, \"content\": result}"
+      ],
+      "metadata": {
+        "id": "yGj_Q16c9YW_"
+      },
+      "execution_count": 15,
+      "outputs": []
+    },
+    {
+      "cell_type": "markdown",
+      "source": [
+        "Na Pratica:"
+      ],
+      "metadata": {
+        "id": "GCTnZNgW98Ih"
+      }
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "messages = [{\"role\": \"user\", \"content\": \"Please read https://maze.edwarddonner.com and tell me what it says. Just describe the page for now, without going into the maze.\"}]\n",
+        "\n",
+        "response = openrouter.chat.completions.create(model=MODEL, messages=messages, tools=tools)\n",
+        "message = response.choices[0].message\n",
+        "\n",
+        "print(f\"Answered by {response.model}\")\n",
+        "print(f\"Finish reason: {response.choices[0].finish_reason}\")\n",
+        "print(message.tool_calls)"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/"
+        },
+        "id": "uuW0g_YO9_yL",
+        "outputId": "0c541a08-8a48-4f6c-9a17-b8a177204c26"
+      },
+      "execution_count": 13,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Answered by recursive/flint-v1.0:free\n",
+            "Finish reason: tool_calls\n",
+            "[ChatCompletionMessageFunctionToolCall(id='call_eefb33bbe13f4468be0b6892', function=Function(arguments='{\"url\": \"https://maze.edwarddonner.com\"}', name='read_web_page'), type='function', index=0)]\n"
+          ]
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "messages.append(message)\n",
+        "for tool_call in message.tool_calls:\n",
+        "    messages.append(handle_tool_call(tool_call))\n",
+        "\n",
+        "response = openrouter.chat.completions.create(model=MODEL, messages=messages, tools=tools)\n",
+        "\n",
+        "print(f\"Answered by {response.model}\")\n",
+        "display(Markdown(response.choices[0].message.content))"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 371
+        },
+        "id": "LhOUgDWl-Ael",
+        "outputId": "df1c1ad1-fa35-4be4-a95c-c5e4f13d273c"
+      },
+      "execution_count": 16,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://maze.edwarddonner.com\n",
+            "Answered by nvidia/nemotron-3.5-super-vl:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "The page at **https://maze.edwarddonner.com** is an introduction to a text-based web maze challenge. Here is what it says:\n\n- **Title:** \"The Maze\"\n- **Purpose:** It is designed for an AI that can read web pages. The goal is to find a way out of a small maze and bring back a hidden message.\n- **How it works:** Every location in the maze is a separate web page that describes the room and lists its exits.\n- **Starting point:** Step 1 is the entrance at **Location 1**: `https://maze.edwarddonner.com/1`\n- **Instructions:** Open the entrance, then follow the exits one page at a time. Some passages are dead ends; if you reach one, go back and try another way.\n- **Reporting requirements:** After each location, you should say where you are and what you found, and show a text-based mini-map of the rooms visited and exits known so far. When you reach the exit, provide the message and a final map of the whole journey.\n- **Note for humans:** If a person is reading this, they should give the address to ChatGPT or Claude and ask it to follow the instructions.\n\nYou asked me to just describe the page without going into the maze, so I have not visited Location 1 or any subsequent pages."
+          },
+          "metadata": {}
+        }
+      ]
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "SYSTEM_PROMPT = \"\"\"\n",
+        "You are an agent that completes tasks by using your tools, one step at a time.\n",
+        "Your replies are displayed as Markdown, so format them in Markdown with headings, bold text and lists.\n",
+        "Put any map or diagram in a code block so that it lines up. Do not use emojis.\n",
+        "\"\"\""
+      ],
+      "metadata": {
+        "id": "xzmIF_Bo-F1o"
+      },
+      "execution_count": 17,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "def run_agent(task, max_steps=25):\n",
+        "    \"\"\"Call the model in a loop, running the tool whenever it asks, until it gives a final answer\"\"\"\n",
+        "    messages = [\n",
+        "        {\"role\": \"system\", \"content\": SYSTEM_PROMPT},\n",
+        "        {\"role\": \"user\", \"content\": task},\n",
+        "    ]\n",
+        "    for step in range(1, max_steps + 1):\n",
+        "        response = openrouter.chat.completions.create(model=MODEL, messages=messages, tools=tools)\n",
+        "        message = response.choices[0].message\n",
+        "        print(f\"Step {step} answered by {response.model}\")\n",
+        "\n",
+        "        text = (message.content or \"\").strip()\n",
+        "        if text:\n",
+        "            display(Markdown(text))\n",
+        "\n",
+        "        if message.tool_calls:\n",
+        "            messages.append(message)\n",
+        "            for tool_call in message.tool_calls:\n",
+        "                messages.append(handle_tool_call(tool_call))\n",
+        "        elif text:\n",
+        "            return\n",
+        "        else:\n",
+        "            print(\"The reply was empty, so we ask again\")\n",
+        "\n",
+        "    print(\"The agent ran out of steps\")"
+      ],
+      "metadata": {
+        "id": "tFOikLtH-Gv4"
+      },
+      "execution_count": 18,
+      "outputs": []
+    },
+    {
+      "cell_type": "code",
+      "source": [
+        "run_agent(\"Have a look at https://maze.edwarddonner.com and do what it says.\")"
+      ],
+      "metadata": {
+        "colab": {
+          "base_uri": "https://localhost:8080/",
+          "height": 1000
+        },
+        "id": "FGP9goIC-Jze",
+        "outputId": "a3091ab1-8d78-40b7-9270-9e712bb7ef66"
+      },
+      "execution_count": 19,
+      "outputs": [
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Step 1 answered by baidu/ernie-5.5-flash-preview:free\n",
+            "Reading web page: https://maze.edwarddonner.com\n",
+            "Step 2 answered by nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free\n",
+            "Reading web page: https://maze.edwarddonner.com/1\n",
+            "Step 3 answered by particle-ai/particle-1:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "I've opened the maze entrance. Here's where things stand so far.\n\n## Location 1 - The Entrance\n\nTwo stone corridors lead away into the dark: **North** and **East**.\n\n```\n                    THE MAZE\n                    ========\n\n        [14] ?\n         |\n        (1) ENTRANCE --(E)--> [27] ?\n```\n\nMoving **North** to explore first."
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://maze.edwarddonner.com/14\n",
+            "Step 4 answered by nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "## Location 14 - Long Corridor\n\nA long corridor with damp walls. Someone has scratched a tally into the stone.\n\nExits:\n- **North** → Location 62\n- **South** → Location 1 (Entrance)\n\n```\n                THE MAZE\n                ========\n\n        [62] ?\n         |\n        (14) CORRIDOR --(N)--> [62]\n         |\n        (1) ENTRANCE\n```\n\nProceeding north to location 62."
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://maze.edwarddonner.com/62\n",
+            "Step 5 answered by nvidia/nemotron-3.5-super-vl:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "## Location 62 - Junction\n\nA junction with a low ceiling. A faint hum comes from somewhere to the east.\n\nExits:\n- **North** → Location 39\n- **East** → Location 48\n- **South** → Location 14\n\n```\n                THE MAZE\n                ========\n\n        [39] ?\n         |\n        (62) JUNCTION --(N)--> [39]\n         |\n        (14) CORRIDOR --(S)--> [1]\n         |\n        (1) ENTRANCE\n\n        [48] ?  (unexplored east exit from 62)\n```\n\nExploring north to location 39 first."
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://maze.edwarddonner.com/39\n",
+            "Step 6 answered by nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "## Location 39 - Chamber\n\nA chamber with an old wooden door that has been painted shut.\n\nExits:\n- **East** → Location 71\n- **South** → Location 62\n\n```\n                THE MAZE\n                ========\n\n        [71] ?\n         |\n        (39) CHAMBER --(E)--> [71]\n         |\n        (62) JUNCTION --(S)--> [14]\n\n        [62] JUNCTION --(W)--> [39]\n```\n\nProceeding east to location 71."
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://maze.edwarddonner.com/71\n",
+            "Step 7 answered by inclusionai/ling-3.2-flash:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "## Location 71 - Dead End\n\nA cupboard of a room with a broom in it. **Dead end.**\n\nOnly exit: **West** → Location 39. Backtracking.\n\n```\n                THE MAZE\n                ========\n\n        [71] X (dead end)\n         |\n        (39) CHAMBER\n         |\n        (62) JUNCTION --(E)--> [48] ?\n         |\n        (14) CORRIDOR\n         |\n        (1) ENTRANCE\n```\n\nBacktracking west to 39, then south to 62, then east to 48."
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://maze.edwarddonner.com/39\n",
+            "Step 8 answered by dots-studio/dots-3-note-preview:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "Back at 39. Now heading south to 62, then east to 48."
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://maze.edwarddonner.com/62\n",
+            "Step 9 answered by particle-ai/particle-1:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "Back at the junction (62). Taking the **east** exit toward the faint hum."
+          },
+          "metadata": {}
+        },
+        {
+          "output_type": "stream",
+          "name": "stdout",
+          "text": [
+            "Reading web page: https://maze.edwarddonner.com/48\n",
+            "Step 10 answered by cohere/north-mini-code:free\n",
+            "Reading web page: https://maze.edwarddonner.com/83\n",
+            "Step 11 answered by recursive/flint-v1.0:free\n",
+            "Reading web page: https://maze.edwarddonner.com/25\n",
+            "Step 12 answered by recursive/flint-v1.0:free\n",
+            "Reading web page: https://maze.edwarddonner.com/35\n",
+            "Step 13 answered by nvidia/nemotron-3-ultra-550b-a55b:free\n"
+          ]
+        },
+        {
+          "output_type": "display_data",
+          "data": {
+            "text/plain": [
+              "<IPython.core.display.Markdown object>"
+            ],
+            "text/markdown": "## Location 35 - THE EXIT! 🎉\n\nYou climb the last steps and walk out of the maze into the daylight.\n\n**Message:**  \n> **Welcome to the start of the course! Prepare for 3 intensive weeks ahead.**\n\n---\n\n## Final Map of the Journey\n\n```\n                    THE MAZE - FULL MAP\n                    ===================\n\n        [14] --(N)--> [62] --(N)--> [39] --(E)--> [71] X (dead end: broom cupboard)\n         |             |            |\n        (1)           (E)          (S)\n         |             |            |\n      ENTRANCE       [48] --(E)--> [83] --(N)--> [25] --(E)--> [35] ✓ EXIT\n                           |            |\n                          (W)          (E)\n                           |            |\n                          [62]         [56] ? (unexplored)\n                           |\n                          [14]\n                           |\n                          (1) ENTRANCE\n```\n\n### Path Taken (successful route to exit):\n**1 → 14 → 62 → 48 → 83 → 25 → 35**\n\n### Dead End Found:\n- **Location 71** (broom cupboard) — reached via 1→14→62→39→71\n\n### Unexplored Exits:\n- Location 83 **East** → 56\n- Location 62 **North** → 39 (explored, but 39's east was a dead end)\n- Location 1 **East** → 27\n- Location 14 **North** → 62 (explored)\n- Location 25 **East** → 35 (was the exit path)\n\n### Room Descriptions:\n1. **Entrance** — Two stone corridors lead away into the dark\n2. **14** — Long corridor with damp walls, tally scratched in stone\n3. **62** — Junction with low ceiling, faint hum from east\n4. **48** — Narrow bridge over dry channel, hum louder\n5. **83** — Round chamber with three ways out, cool air moving\n6. **25** — Stone staircase going up, daylight at top\n7. **35** — **EXIT** — You walk out into daylight\n8. **39** — Chamber with old wooden door painted shut\n9. **71** — Cupboard with broom (dead end)"
+          },
+          "metadata": {}
+        }
+      ]
+    }
+  ]
+}
