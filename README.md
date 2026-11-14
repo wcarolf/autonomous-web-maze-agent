@@ -42,7 +42,7 @@ Prevenção de Loop Infinito: Limite máximo de 25 passos (max_steps=25) por exe
 > Como Executar no Google Colab 
 Não é necessário instalar nada no computador:
 
-Clique no selo Open in Colab no topo desta página (ou abra o arquivo maze_agent_notebook.ipynb e clique no botão Open in Colab).
+Clique no selo Open in Colab no topo desta página,
 
 Crie uma chave de API gratuita na OpenRouter.
 
