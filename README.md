@@ -7,7 +7,7 @@ Autonomous AI Agent built in Python using a ReAct loop, Function Calling, and Op
 
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1oo4GJg_RPw-NOrLufhBOiuy3SixUi1Eh?usp=sharing)
 
-*[Leia a documentação em Português](#versão-em-português)*
+*[Leia a documentação em Português](#pt-br)*
 
 ---
 *(#ENGLISH-VERSION)*
@@ -21,7 +21,9 @@ Rather than relying on high-level agent frameworks that hide the underlying mech
 * **Fault Tolerance & Self-Correction (`handle_tool_call`):** Wraps tool execution in a `try/except` block that catches HTTP or parsing errors and returns them as structured tool feedback, allowing the LLM to recover and choose an alternative path without crashing the runtime.
 * **Loop Prevention:** Caps execution at `max_steps=25` to prevent infinite loops or runaway API calls.
 
-*(#versão-em-português)*
+<a name="pt-br"></a>
+
+# Versão em Português
 Agente de IA Autônomo desenvolvido em Python no Google Colab utilizando arquitetura ReAct (Raciocínio + Ação), Function Calling e a API da OpenRouter para navegar por páginas web, extrair texto limpo de HTML e resolver um labirinto online (https://maze.edwarddonner.com) até encontrar a mensagem final.
 
 Arquitetura e Destaques de Engenharia de IA
