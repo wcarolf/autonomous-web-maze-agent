@@ -5,7 +5,7 @@ Autonomous AI Agent built in Python using a ReAct loop, Function Calling, and Op
 
 > **Autonomous AI Agent** built in Python on **Google Colab** using a **ReAct (Reasoning + Acting)** loop, **Function Calling**, and the **OpenRouter API** to crawl web pages, parse HTML with BeautifulSoup, and solve a multi-step online maze (`https://maze.edwarddonner.com`) with domain guardrails and automated error recovery.
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/SEU_USUARIO/autonomous-web-maze-agent/blob/main/maze_agent_notebook.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1oo4GJg_RPw-NOrLufhBOiuy3SixUi1Eh?usp=sharing)
 
 *[Leia a documentação em Português](#versão-em-português)*
 
